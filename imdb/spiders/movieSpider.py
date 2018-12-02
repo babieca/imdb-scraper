@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+import json
 import random
 import logging
 import string
@@ -37,7 +38,7 @@ class imdbSpider(CrawlSpider):
     tags = ['a', 'area', 'audio', 'embed', 'iframe', 'img', 'input', 'script', 'source', 'track', 'video', 'form']
     #attrs = ['href', 'src', 'action']
     attrs = ['href']
-   
+
     people_links = {}
     detail_fields = ["Taglines:", "Country:", "Language:", "Budget:", "Cumulative Worldwide Gross:", "Production Co:"]
     director_fields = ["Director:", "Writers:"]
@@ -47,80 +48,122 @@ class imdbSpider(CrawlSpider):
 
     rules = (
         Rule(LxmlLinkExtractor(allow=movie_link), callback='parse_movie', follow=False),
-        Rule(LxmlLinkExtractor(allow=nextpage_link), follow=True),
+        Rule(LxmlLinkExtractor(allow=nextpage_link), callback='parse_nextpage', follow=True),
         )
+
+    def parse_nextpage(self, response):
+        print("[  PAGE  ]  {}".format(response.request.url))
 
     def parse_movie(self, response):
 
         #logger.info(">>>>> Movie: {}".format(response.request.url))
-        print(">>>>> Movie: {}".format(response.request.url))
+        #print("[  MOVIE  ]  {}".format(response.request.url))
 
         # inputs
 
-        _id = response.request.url.split('/')[4]
-        title = ''.join(list(filter( lambda x: x in string.printable, response.xpath('//div[@class="title_wrapper"]/h1/text()').extract_first())))
-        subtext = ''.join(list(map(str.strip, response.xpath('//div[@class="subtext"]//text()').extract()))).split('|')
-        imdb_rating = ''.join(map(str, response.xpath('//div[@class="ratingValue"]/strong/span/text()').extract()))
-        #rating_count = ''.join(map(str, response.xpath(response.xpath('//span[@itemprop="ratingCount"]/text()').extract())))
-        description = response.xpath('//div[@class="summary_text"]/text()').extract_first().strip() 
-        storyline = response.xpath('//div[@id="titleStoryLine"]/div/p/span/text()').extract_first().strip()
-        directors = response.xpath('//div[@class="plot_summary "]/div[2][@class="credit_summary_item"]/a/text()').extract()
-        writer = response.xpath('//div[@class="plot_summary "]/div[3][@class="credit_summary_item"]/a/text()').extract()
-        stars = response.xpath('//div[@class="plot_summary "]/div[4][@class="credit_summary_item"]/a/text()').extract()
-        cast = response.xpath('//div[@class="plot_summary "]/div[4][@class="credit_summary_item"]/a/text()').extract()
+        movie_id = response.request.url.split('/')[4]
+        title = ''.join(list(filter( lambda x: x in string.printable, response.xpath('//div[@class="title_wrapper"]/h1/text()').extract_first().strip())))
+        film_rating = response.xpath('//div[@class="subtext"]/text()').extract_first()
+        duration = response.xpath('//div[@class="subtext"]/time/text()').extract_first()
+        genre = ''.join(list(map(str.strip, str(response.xpath('//div[@class="subtext"]/a[not(@title="See more release dates")]/text()').extract()))))
+        release_date = response.xpath('//div[@class="subtext"]/a[@title="See more release dates"]/text()').extract_first()
+
+        imdb_ratingValue = response.xpath('//span[@itemprop="ratingValue"]/text()').extract_first()
+        imdb_bestRating = response.xpath('//span[@itemprop="bestRating"]/text()').extract_first()
+        imdb_ratingCount = response.xpath('//span[@itemprop="ratingCount"]/text()').extract_first()
+
+        description = response.xpath('//div[@class="summary_text"]/text()').extract_first()
+        storyline = response.xpath('//div[@id="titleStoryLine"]/div/p/span/text()').extract_first()
+
+        lables = response.xpath('//div[contains(@class, "plot_summary")]/div[@class="credit_summary_item"]/h4/text()').extract()
+        credits = dict.fromkeys(['director', 'creator' ,'writer' ,'stars'])
+        k = 0
+        for x in lables:
+            persons = response.xpath('//div[contains(@class, "plot_summary")]/div['+str(k)+'][@class="credit_summary_item"]/a/text()').extract()
+
+            if 'See full cast & crew' in persons: persons.remove('See full cast & crew')
+
+            # remove comments between brakets or parenthesis
+            persons = [re.sub("[\(\[].*?[\)\]]", "", p).strip() for p in persons]
+
+            # director(s), creator(s), writer(s), stars
+            if 'director' in x.lower(): credit['director'] = persons
+            if 'creator' in x.lower(): credits['creator'] = persons
+            if 'writer' in x.lower(): credits['writer'] = persons
+            if 'star' in x.lower(): credits['stars'] = persons
+
+            k += 1
+
         taglines = ''.join(response.xpath('//div[@id="titleStoryLine"]/div[@class="txt-block"]/text()').extract()).strip()
         url = response.request.url
-        req_headers = response.request.headers
-        res_headers = response.headers
-        body = response.body
+
+        req_headers = self.headers_format(response.request.headers)
+        res_headers = self.headers_format(response.headers)
 
 
         # Cleaning inputs
 
-        if not _id: return
-        if not title: return
+        if not movie_id or not title: return
 
-        if isinstance(subtext, (list,)):
-            film_rating = subtext[0] if len(subtext)>0 else ''
-            duration = subtext[1] if len(subtext)>1 else ''
-            genre = subtext[2].split(',') if len(subtext)>2 else ''
-            release_date = re.sub("[\(\[].*?[\)\]]", "", subtext[3]).strip() if len(subtext)>3 else ''
-            country = subtext[3][subtext[3].find("(")+1:subtext[3].find(")")] if len(subtext)>3 else ''                
+        film_rating = film_rating.strip() if film_rating and type(film_rating) is str  else ''
+        release_date = release_date.strip() if release_date and type(release_date) is str  else ''
+        duration = duration.strip() if duration and type(duration) is str  else ''
 
-        imdb_rating = float(imdb_rating) if imdb_rating and imdb_rating.isdigit() else -1
-        #rating_count = float(rating_count) if rating_count and rating_count.isdigit() else -1
 
-        description = description if type(description) is str else ''
-        storyline = storyline if type(storyline) is str else ''
+        imdb_ratingValue = self.input2num(imdb_ratingValue)
+        imdb_ratingCount = self.input2num(imdb_ratingCount)
+        imdb_bestRating = self.input2num(imdb_bestRating)
 
-        if 'See full cast & crew' in cast: cast.remove('See full cast & crew')
-        cast = cast
+        description = description.strip() if description and type(description) is str else ''
+        storyline = storyline.strip() if storyline and type(storyline) is str else ''
 
-        if body and not isinstance(body, str): body = body.decode('utf-8')
 
         # Output
 
         item = ImdbItem()
 
-        item['id'] = _id
+        item['movie_id'] = movie_id
         item['title'] = title
         item['film_rating'] = film_rating
         item['duration'] = duration
         item['genre'] = genre
         item['release_date'] = release_date
-        item['country'] = country
-        item['imdb_rating'] = imdb_rating
-        #item['rating_count'] = rating_count
+        item['imdb_ratingValue'] = imdb_ratingValue
+        item['imdb_bestRating'] = imdb_bestRating
+        item['imdb_ratingCount'] = imdb_ratingCount
         item['description'] = description
         item['storyline'] = storyline
-        item['directors'] = directors
-        item['writer'] = writer
-        item['stars'] = stars
-        item['cast'] = cast
+        item['director'] = credits.get('director', '')
+        item['writer'] = credits.get('writer', '')
+        item['creator'] = credits.get('creator', '')
+        item['stars'] = credits.get('stars', '')
         item['taglines'] = taglines
         item['url'] = url
         item['req_headers'] = req_headers
         item['res_headers'] = res_headers
-        item['body'] = body
 
         yield item
+
+
+    def input2num(self, iput):
+
+        regnum = re.compile("^(?=.*?\d)\d*[.,]?\d*$")
+        if iput:
+            if iput.isdigit():
+                return float(iput)
+
+            oput = iput.replace(",", "")
+            if regnum.match(oput):
+                return float(oput)
+        return -1
+
+    def headers_format(self, header):
+        hdr = {}
+        for key, value in header.items():
+            if isinstance(key, (bytes, bytearray)):
+                hdr[key.decode('utf-8')] = b''.join(value).decode('utf-8')
+            else:
+                hdr[key] = ''.join(value)
+
+        return json.dumps(hdr, ensure_ascii=False)
+
