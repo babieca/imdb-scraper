@@ -21,7 +21,7 @@ class ImdbItem(scrapy.Item):
     imdb_bestRating = scrapy.Field()
     imdb_ratingCount = scrapy.Field()
 
-    description = scrapy.Field()
+    summary = scrapy.Field()
     storyline = scrapy.Field()
 
     director = scrapy.Field()
@@ -30,6 +30,7 @@ class ImdbItem(scrapy.Item):
     stars = scrapy.Field()
 
     taglines = scrapy.Field()
+    tagwords = scrapy.Field()
 
     url = scrapy.Field()
     req_headers = scrapy.Field()

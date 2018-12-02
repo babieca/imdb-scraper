@@ -51,13 +51,14 @@ class ImdbPipeline(object):
         movie.imdb_ratingValue = item['imdb_ratingValue']
         movie.imdb_bestRating = item['imdb_bestRating']
         movie.imdb_ratioCount = item['imdb_ratingCount']
-        movie.description = item['description']
+        movie.summary = item['summary']
         movie.storyline = item['storyline']
         movie.director = item['director']
         movie.creator = item['creator']
         movie.writer = item['writer']
         movie.stars = item['stars']
         movie.taglines = item['taglines']
+        movie.tagwords = item['tagwords']
         movie.url = item['url']
         movie.req_headers = json.loads(item['req_headers'])
         movie.res_headers = json.loads(item['res_headers'])
@@ -78,14 +79,15 @@ class Movie(Document):
     imdb_ratingValue = Float()
     imdb_bestRating = Float()
     imdb_ratingCount = Float()
-    description = Text()
+    summary = Text()
     storyline = Text()
     director = Keyword(multi=True)
     creator = Keyword(multi=True)
     writer = Keyword(multi=True)
     stars = Keyword(multi=True)
     taglines = Keyword(multi=True)
-    url = Keyword()
+    tagwords = Keyword(multi=True)
+    url = Keyword(index=False)
     req_headers = Object(enabled=False)
     res_headers = Object(enabled=False)
 
