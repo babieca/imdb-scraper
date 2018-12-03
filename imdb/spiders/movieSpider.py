@@ -8,7 +8,6 @@ import logging
 import string
 
 import scrapy
-from scrapy.http.request import Request
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 from imdb.items import ImdbItem
@@ -25,8 +24,9 @@ class imdbSpider(CrawlSpider):
     name = "imdbSpider"
     allowed_domains = ['imdb.com']
 
+    moviesPerPage = '5'
     start_urls = [
-        'https://www.imdb.com/search/title?release_date=1980-01-01,'
+        'https://www.imdb.com/search/title?release_date=1980-01-01,&count='+moviesPerPage
         ]
     deny_urls = ['']
 
@@ -40,9 +40,8 @@ class imdbSpider(CrawlSpider):
     #attrs = ['href', 'src', 'action']
     attrs = ['href']
 
-    link_movie = r'/title/\w+/\?ref_=adv_li_tt'
-    link_nextpage = r'/search/title\?release_date=1980-01-01,&start=\d+&ref_=adv_nxt'
-    link_reviews = r'/title/\w+/reviews\?ref_=tt_urv'
+    link_movie = r'/title/\w*/\?ref_=adv_li_tt'
+    link_nextpage = r'/search/title\?release_date=1980-01-01,&count='+moviesPerPage+'&start=\d*&ref_=adv_nxt'
 
     rules = (
         Rule(LxmlLinkExtractor(allow=link_movie), callback='parse_movie', follow=False),
@@ -53,11 +52,10 @@ class imdbSpider(CrawlSpider):
         print("[  PAGE  ]  {}".format(response.request.url))
 
     def parse_reviews(self, response):
-        divs = response.xpath('//div[@class="lister-item mode-detail imdb-user-review  collapsable"]')
-        reviews = []
-        for div in divs:
-            reviews.append(div.xpath('//div[@class="content"]/div[@class="text show-more__control"]/text()').extract_first().strip())
-
+        print("[  REVIEWS  ]  {}".format(response.request.url))
+        divs = response.xpath('//div[contains(@class, "lister-item mode-detail") and contains(@class, "imdb-user-review") and contains(@class, "collapsable")]//div[@class="content"]/div[@class="text show-more__control"]/text()')
+        reviews = [div.extract() for div in divs]
+        
         item = response.meta['item']
         item['reviews'] = reviews
         yield item
@@ -65,7 +63,7 @@ class imdbSpider(CrawlSpider):
     def parse_movie(self, response):
 
         #logger.info(">>>>> Movie: {}".format(response.request.url))
-        #print("[  MOVIE  ]  {}".format(response.request.url))
+        print("[  MOVIE  ]  {}".format(response.request.url))
 
         # inputs
 
@@ -105,16 +103,19 @@ class imdbSpider(CrawlSpider):
         taglines = response.xpath('//div[@id="titleStoryLine"]/div[@class="txt-block"]/text()').extract()
         tagwords = response.xpath('//div[@class="see-more inline canwrap"]/a/span[@class="itemprop"]/text()').extract()
 
-        url = response.request.url
+        req_url = response.request.url
 
         req_headers = self.headers_format(response.request.headers)
         res_headers = self.headers_format(response.headers)
 
-        link_reviews = response.xpath('//div[@id="titleUserReviewsTeaser"]/div[@class="user-comments"]/a/text()').extract_first()
-        url = response.urljoin(link_reviews)
-        request.meta['item'] = item
-        reviews = Request(url, callback=self.parse_reviews)
-
+        p = re.compile('/title/\w+/reviews\?ref_=tt_urv')
+        links = response.xpath('//div[@id="titleUserReviewsTeaser"]/div[@class="user-comments"]/a/@href').extract()
+        request = None
+        for link in links:
+            if p.match(link):
+                url = response.urljoin(link)
+                request = scrapy.Request(url, callback=self.parse_reviews, dont_filter=True)
+                break
 
         # Cleaning inputs
 
@@ -161,12 +162,17 @@ class imdbSpider(CrawlSpider):
         item['stars'] = credits.get('stars', '')
         item['taglines'] = taglines_clean
         item['tagwords'] = tagwords
-        item['url'] = url
+        item['reviews'] = None
+        item['url'] = req_url
         item['req_headers'] = req_headers
         item['res_headers'] = res_headers
 
-        yield item
+        if request:
+            request.meta['item'] = item
+            yield request
 
+        else:
+            yield item
 
     def input2num(self, iput):
 

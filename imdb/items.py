@@ -31,11 +31,11 @@ class ImdbItem(scrapy.Item):
 
     taglines = scrapy.Field()
     tagwords = scrapy.Field()
+    reviews = scrapy.Field()
 
     url = scrapy.Field()
     req_headers = scrapy.Field()
     res_headers = scrapy.Field()
-    #body = scrapy.Field()
 
     def __repr__(self):
         pass

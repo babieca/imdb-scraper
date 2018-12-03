@@ -42,6 +42,7 @@ class ImdbPipeline(object):
     # insert data into ElasticSearch
     def process_item(self, item, spider):
         movie = Movie()
+
         movie.meta['id'] = item['movie_id']
         movie.title = item['title']
         movie.film_rating = item['film_rating']
@@ -59,13 +60,15 @@ class ImdbPipeline(object):
         movie.stars = item['stars']
         movie.taglines = item['taglines']
         movie.tagwords = item['tagwords']
+        movie.reviews = item['reviews']
         movie.url = item['url']
         movie.req_headers = json.loads(item['req_headers'])
         movie.res_headers = json.loads(item['res_headers'])
         #movie.suggest = item['title'] + item['stars'] + item['creator']
+
         movie.save(using=es)
 
-        print('[  Elasticsearch  ]  {}'.format(movie))
+        #print('[  Elasticsearch  ]  {}'.format(movie))
         return item
 
 
@@ -87,15 +90,13 @@ class Movie(Document):
     stars = Keyword(multi=True)
     taglines = Keyword(multi=True)
     tagwords = Keyword(multi=True)
+    reviews = Text(index=False)
     url = Keyword(index=False)
     req_headers = Object(enabled=False)
     res_headers = Object(enabled=False)
 
     suggest = Completion(analyzer=ngram_analyzer,
                          search_analyzer=analyzer('standard'))
-
-    #datePublished = Date()
-    #time = Integer()
 
     class Index:
         name = 'imdb'
