@@ -37,5 +37,7 @@ class ImdbItem(scrapy.Item):
     req_headers = scrapy.Field()
     res_headers = scrapy.Field()
 
+    req_num = scrapy.Field()
+
     def __repr__(self):
         pass

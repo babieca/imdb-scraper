@@ -24,11 +24,13 @@ class imdbSpider(CrawlSpider):
     name = "imdbSpider"
     allowed_domains = ['imdb.com']
 
-    moviesPerPage = '5'
+    moviesPerPage = '250'
     start_urls = [
         'https://www.imdb.com/search/title?release_date=1980-01-01,&count='+moviesPerPage
         ]
     deny_urls = ['']
+
+    req_num = req_num_page = 0
 
     with open(settings.get('DENIED_DOMAINS')) as f:
         content = f.readlines()
@@ -49,21 +51,25 @@ class imdbSpider(CrawlSpider):
         )
 
     def parse_nextpage(self, response):
-        print("[  PAGE  ]  {}".format(response.request.url))
+        print("[  PAGE ({})  ]  {}".format(self.req_num_page, response.request.url))
+        self.req_num_page += 1
 
     def parse_reviews(self, response):
-        print("[  REVIEWS  ]  {}".format(response.request.url))
         divs = response.xpath('//div[contains(@class, "lister-item mode-detail") and contains(@class, "imdb-user-review") and contains(@class, "collapsable")]//div[@class="content"]/div[@class="text show-more__control"]/text()')
         reviews = [div.extract() for div in divs]
         
         item = response.meta['item']
         item['reviews'] = reviews
+        req_num = item['req_num']
+
+        print("[  REVIEWS ({})  ]  {}".format(req_num, response.request.url))
+
         yield item
 
     def parse_movie(self, response):
 
         #logger.info(">>>>> Movie: {}".format(response.request.url))
-        print("[  MOVIE  ]  {}".format(response.request.url))
+        print("[  MOVIE ({})  ]  {}".format(self.req_num, response.request.url))
 
         # inputs
 
@@ -166,6 +172,9 @@ class imdbSpider(CrawlSpider):
         item['url'] = req_url
         item['req_headers'] = req_headers
         item['res_headers'] = res_headers
+
+        item['req_num'] = self.req_num
+        self.req_num +=1
 
         if request:
             request.meta['item'] = item

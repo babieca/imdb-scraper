@@ -34,10 +34,12 @@ ngram_analyzer = analyzer('ngram_analyzer',
 class ImdbPipeline(object):
 
     def __init__(self):
-        movies = Index('imdb', using=es)
+
+        movies = Index('imdb2', using=es)
         movies.doc_type(Movie)
         movies.delete(ignore=404)
         movies.create()
+
 
     # insert data into ElasticSearch
     def process_item(self, item, spider):
@@ -68,7 +70,10 @@ class ImdbPipeline(object):
 
         movie.save(using=es)
 
-        #print('[  Elasticsearch  ]  {}'.format(movie))
+        req_num = item['req_num']
+
+        #print('[  Elasticsearch ({})  ]  {}'.format(req_num, movie))
+
         return item
 
 
