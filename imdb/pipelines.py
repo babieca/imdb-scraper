@@ -16,7 +16,7 @@ from elasticsearch import Elasticsearch
 #es=Elasticsearch(['localhost'],http_auth=('elastic', 'changeme'),port=9200)
 es=Elasticsearch(['localhost'],port=9200)
 
-index_name = 'imdb1'
+index_name = 'imdb'
 
 
 ngram_filter = token_filter('ngram_filter',
