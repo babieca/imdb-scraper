@@ -24,7 +24,7 @@ class imdbSpider(CrawlSpider):
     name = "imdbSpider"
     allowed_domains = ['imdb.com']
 
-    moviesPerPage = '250'
+    moviesPerPage = '1'
     start_urls = [
         'https://www.imdb.com/search/title?release_date=1980-01-01,&count='+moviesPerPage
         ]

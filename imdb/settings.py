@@ -109,7 +109,7 @@ ITEM_PIPELINES = {
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
-DEPTH_LIMIT = 0
+DEPTH_LIMIT = 10
 DEPTH_PRIORITY = 0
 SCHEDULER_DISK_QUEUE = 'scrapy.squeues.MarshalFifoDiskQueue'
 SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'

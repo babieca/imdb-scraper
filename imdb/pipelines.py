@@ -16,6 +16,9 @@ from elasticsearch import Elasticsearch
 #es=Elasticsearch(['localhost'],http_auth=('elastic', 'changeme'),port=9200)
 es=Elasticsearch(['localhost'],port=9200)
 
+index_name = 'imdb1'
+
+
 ngram_filter = token_filter('ngram_filter',
                             type='nGram',
                             min_gram=1,
@@ -35,7 +38,7 @@ class ImdbPipeline(object):
 
     def __init__(self):
 
-        movies = Index('imdb2', using=es)
+        movies = Index(index_name, using=es)
         movies.doc_type(Movie)
         movies.delete(ignore=404)
         movies.create()
@@ -68,11 +71,13 @@ class ImdbPipeline(object):
         movie.res_headers = json.loads(item['res_headers'])
         #movie.suggest = item['title'] + item['stars'] + item['creator']
 
-        movie.save(using=es)
-
         req_num = item['req_num']
 
-        #print('[  Elasticsearch ({})  ]  {}'.format(req_num, movie))
+        if movie.save(using=es):
+            print('[  Elasticsearch ({})  ]  {}'.format(req_num, movie))
+        else:
+            errmsg = 'Oppsss... something went wrong :( '
+            print('[  Elasticsearch ({})  ]  {} {}'.format(req_num, movie, errmsg))
 
         return item
 
@@ -104,4 +109,4 @@ class Movie(Document):
                          search_analyzer=analyzer('standard'))
 
     class Index:
-        name = 'imdb'
+        name = index_name
