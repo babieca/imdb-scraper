@@ -77,7 +77,7 @@ class imdbSpider(CrawlSpider):
         title = ''.join(list(filter( lambda x: x in string.printable, response.xpath('//div[@class="title_wrapper"]/h1/text()').extract_first().strip())))
         film_rating = response.xpath('//div[@class="subtext"]/text()').extract_first()
         duration = response.xpath('//div[@class="subtext"]/time/text()').extract_first()
-        genre = ''.join(list(map(str.strip, str(response.xpath('//div[@class="subtext"]/a[not(@title="See more release dates")]/text()').extract()))))
+        genre = response.xpath('//div[@class="subtext"]/a[not(@title="See more release dates")]/text()').extract()
         release_date = response.xpath('//div[@class="subtext"]/a[@title="See more release dates"]/text()').extract_first()
 
         imdb_ratingValue = response.xpath('//span[@itemprop="ratingValue"]/text()').extract_first()
@@ -130,6 +130,9 @@ class imdbSpider(CrawlSpider):
         film_rating = film_rating.strip() if film_rating and type(film_rating) is str  else ''
         release_date = release_date.strip() if release_date and type(release_date) is str  else ''
         duration = duration.strip() if duration and type(duration) is str  else ''
+
+        genre = [g.strip() for g in genre if type(g) is str and len(g)>0 ]
+        if len(genre) == 0: genre = ''
 
 
         imdb_ratingValue = self.input2num(imdb_ratingValue)
